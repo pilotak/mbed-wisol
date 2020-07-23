@@ -4,7 +4,7 @@
 
 Mbed library for Wisol WSSFM10 SigFox modem
 
-# Example
+## Example
 ```cpp
 #include "mbed.h"
 #include "Wisol.h"
