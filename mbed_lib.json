@@ -1,0 +1,9 @@
+{
+  "name": "Wisol",
+  "config": {
+    "timeout": {
+      "help": "Timeout for AT commands (ms)",
+      "value": 200
+    }
+  }
+}
