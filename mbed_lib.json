@@ -4,6 +4,10 @@
     "timeout": {
       "help": "Timeout for AT commands (ms)",
       "value": 200
+    },
+    "extended_timeout": {
+      "help": "Timeout for send command (ms)",
+      "value": 14000
     }
   }
 }

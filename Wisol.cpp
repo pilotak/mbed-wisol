@@ -41,10 +41,10 @@ bool Wisol::init(bool debug) {
         _parser->~ATCmdParser();
     }
 
-    _parser = new (parser_buffer) ATCmdParser(&_serial, "\r\n", 256, MBED_CONF_WISOL_TIMEOUT, debug);
+    _parser = new (parser_buffer) ATCmdParser(&_serial, "\r", 256, MBED_CONF_WISOL_TIMEOUT, debug);
     _parser->send("AT");
 
-    bool res = _parser->recv("OK");
+    bool res = _parser->recv("OK\n");
 
     if (res) {
         tr_info("Alive");
@@ -101,8 +101,9 @@ bool Wisol::getId(uint8_t *id) {
 
 bool Wisol::setPowerMode(power_mode_t mode) {
     tr_debug("Setting power mode: %u", mode);
+    _parser->send("AT$P=%u", mode);
 
-    return _parser->recv("OK");
+    return _parser->recv("OK\n");
 }
 
 bool Wisol::reset() {
@@ -114,49 +115,101 @@ void Wisol::sendBreak() {
     _parser->putc(0xFF);
 }
 
-bool Wisol::sendBit(bool bit, bool downlink) {
-    tr_debug("Sending bit: %u%s", bit, downlink ? ", expecting a downlink" : "");
-    _parser->send("AT$SB=%u,%u", bit, downlink);
-
-    return _parser->recv("OK");
-}
-
-bool Wisol::sendFrame(const void *data, size_t length, bool downlink) {
-    if (length > SIGFOX_MAX_DATA_LENGTH) {
-        return false;
-    }
-
-    auto *buffer = reinterpret_cast<const char *>(data);
-    tr_debug("Sending frame[%u]: %s %s", length, tr_array(reinterpret_cast<const uint8_t *>(data), length),
-             downlink ? ", expecting a downlink" : "");
-
-    _parser->printf("AT$SF=");
-    _parser->write(buffer, length);
-    _parser->printf(",%u\r\n", downlink);
+bool Wisol::sendBit(bool bit, char *downlink) {
+    tr_debug("Sending bit: %u%s", bit, (downlink != nullptr ? ", expecting a downlink" : ""));
 
     // set longer timeout
-    _parser->set_timeout(MBED_CONF_WISOL_TIMEOUT << 2);
+    _parser->set_timeout(MBED_CONF_WISOL_EXTENDED_TIMEOUT);
+    _parser->send("AT$SB=%u,%u", bit, (downlink != nullptr ? 1 : 0));
 
-    bool ok = _parser->recv("OK");
+    bool res = _parser->recv("OK\n");
+
+    if (downlink != nullptr) {
+        tr_debug("Waiting for downlink");
+        res = _parser->recv("RX=%[^\n]", downlink);
+
+        if (res) {
+            tr_info("Response: %s", downlink);
+
+        } else {
+            tr_error("No response");
+        }
+    }
 
     // restore timeout
     _parser->set_timeout(MBED_CONF_WISOL_TIMEOUT);
 
-    return ok;
+    return res;
+}
+
+bool Wisol::sendFrame(const void *data, size_t length, char *downlink) {
+    bool res = false;
+
+    if (data == nullptr || length == 0 || length > SIGFOX_MAX_DATA_LENGTH) {
+        return res;
+    }
+
+    auto *buffer = reinterpret_cast<const uint8_t *>(data);
+    tr_debug("Sending frame[%u]: %s%s", length, tr_array(buffer, length),
+             (downlink != nullptr ? ", expecting a downlink" : ""));
+
+    // set longer timeout
+    _parser->set_timeout(MBED_CONF_WISOL_EXTENDED_TIMEOUT);
+    _parser->write("AT$SF=", 6);
+
+    // convert buffer to ASCII
+    for (size_t i = 0; i < length; i++) {
+        _parser->putc(hex_chars[(buffer[i] & 0xF0) >> 4 ]);
+        _parser->putc(hex_chars[(buffer[i] & 0x0F) >> 0 ]);
+    }
+
+    if (downlink != nullptr) {
+        _parser->send(",1");
+
+        if (_parser->recv("OK\n")) {
+            tr_info("Sent");
+            tr_debug("Waiting for downlink");
+            res = _parser->recv("RX=%[^\n]", downlink);
+
+            if (res) {
+                tr_info("Response: %s", downlink);
+
+            } else {
+                tr_error("No response");
+            }
+        }
+
+    } else {
+        _parser->putc('\r');
+        res = _parser->recv("OK\n");
+
+        if (res) {
+            tr_info("Sent");
+        }
+    }
+
+    if (!res) {
+        tr_error("Sending failed");
+    }
+
+    // restore timeout
+    _parser->set_timeout(MBED_CONF_WISOL_TIMEOUT);
+
+    return res;
 }
 
 bool Wisol::setTransmitRepeat(uint8_t repeats) {
     tr_debug("Setting transmit repeat: %u", repeats);
     _parser->send("AT$TR=%u", repeats);
 
-    if (!_parser->recv("OK")) {
+    if (!_parser->recv("OK\n")) {
         return false;
     }
 
     // get transmit repeat to compare
     _parser->send("AT$TR?");
-    uint16_t data;
-    bool ok = _parser->recv("%hu", &data);
+    int data;
+    bool ok = _parser->recv("%u\n", &data);
 
     if (!ok || data != repeats) {
         return false;
@@ -166,6 +219,7 @@ bool Wisol::setTransmitRepeat(uint8_t repeats) {
 }
 
 bool Wisol::getTemperature(int *temperature) {
+    tr_debug("Getting temperature");
     int temp;
     _parser->send("AT$T?");
 
@@ -185,6 +239,7 @@ bool Wisol::getTemperature(int *temperature) {
 }
 
 bool Wisol::getVoltage(int *current, int *last) {
+    tr_debug("Getting voltage");
     int voltage[2];
     _parser->send("AT$V?");
 

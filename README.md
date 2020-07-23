@@ -12,50 +12,26 @@ Mbed library for Wisol WSSFM10 SigFox modem
 Wisol wisol(PC_4, PC_5);
 
 int main() {
-    uint8_t id[SIGFOX_ID_LENGTH];
-    uint8_t pac[SIGFOX_PAC_LENGTH];
-    int temp;
-    int current_mv;
-    int last_mv;
-
     if (!wisol.init()) {
+        printf("Could not init");
         return 0;
     }
 
-    if (wisol.getId(id)) {
-        printf("ID: ");
+    uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C};
 
-        for (auto i = 0; i < SIGFOX_ID_LENGTH; i++) {
-            printf("%02X", id[i]);
-        }
+    if (wisol.sendFrame(data, sizeof(data))) {
+        printf("Message sent!\n");
 
-        printf("\n");
-    }
-
-    if (wisol.getPac(pac)) {
-        printf("PAC: ");
-
-        for (auto i = 0; i < SIGFOX_PAC_LENGTH; i++) {
-            printf("%02X", pac[i]);
-        }
-
-        printf("\n");
-    }
-
-    if (wisol.getTemperature(&temp)) {
-        printf("Temperature: %d *C(1/10th)\n", temp);
-    }
-
-    if (wisol.getVoltage(&current_mv, &last_mv)) {
-        printf("Current voltage: %dmV\n", current_mv);
-        printf("Voltage during last transmission: %dmV\n", last_mv);
+    } else {
+        printf("Sending message failed\n");
     }
 
     return 0;
 }
 ```
 
-## Debug example
+## Detailed example
+`mbed_app.json`
 ```json
 {
   "config": {
@@ -73,6 +49,7 @@ int main() {
   }
 }
 ```
+`main.cpp`
 ```cpp
 #include "mbed.h"
 #include "Wisol.h"
@@ -103,44 +80,32 @@ int main() {
     trace_init();
 #endif
 
+    uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C};
     uint8_t id[SIGFOX_ID_LENGTH];
     uint8_t pac[SIGFOX_PAC_LENGTH];
-    int temp;
-    int current_mv;
-    int last_mv;
 
     if (!wisol.init(true)) {
+        printf("Could not init");
         return 0;
     }
 
-    if (wisol.getId(id)) {
-        printf("ID: ");
+    wisol.getId(id);
+    wisol.getPac(pac);
+    wisol.setTransmitRepeat(2);
+    wisol.sendFrame(data, sizeof(data));
+    wisol.getTemperature(nullptr);
+    wisol.getVoltage(nullptr, nullptr);
 
-        for (auto i = 0; i < SIGFOX_ID_LENGTH; i++) {
-            printf("%02X", id[i]);
+    if (wisol.setPowerMode(Wisol::Sleep)) {
+        ThisThread::sleep_for(5s);
+        wisol.sendBreak();
+
+        while (!wisol.init(true)) {
+            ThisThread::sleep_for(250ms);
         }
-
-        printf("\n");
     }
 
-    if (wisol.getPac(pac)) {
-        printf("PAC: ");
-
-        for (auto i = 0; i < SIGFOX_PAC_LENGTH; i++) {
-            printf("%02X", pac[i]);
-        }
-
-        printf("\n");
-    }
-
-    if (wisol.getTemperature(&temp)) {
-        printf("Temperature: %d *C(1/10th)\n", temp);
-    }
-
-    if (wisol.getVoltage(&current_mv, &last_mv)) {
-        printf("Current voltage: %dmV\n", current_mv);
-        printf("Voltage during last transmission: %dmV\n", last_mv);
-    }
+    wisol.reset();
 
     return 0;
 }

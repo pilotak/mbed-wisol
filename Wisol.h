@@ -49,7 +49,7 @@ class Wisol {
     /**
      * @brief Initializes library and checks communication with the modem
      *
-     * @param debug enable/disavle AT commands printout
+     * @param debug enable/disable AT commands printout
      * @return success/failure
      */
     bool init(bool debug = false);
@@ -97,20 +97,20 @@ class Wisol {
      * @brief Send a bit
      *
      * @param bit to send
-     * @param downlink whether to expect a downlink
+     * @param downlink point to downlink response should you need
      * @return success/failure
      */
-    bool sendBit(bool bit, bool downlink = false);
+    bool sendBit(bool bit, char *downlink = nullptr);
 
     /**
      * @brief Send a data buffer
      *
-     * @param data pointer to data buffer
-     * @param length of data
-     * @param downlink whether to expect a downlink
+     * @param data pointer to a data buffer
+     * @param length length of data
+     * @param downlink point to downlink response should you need
      * @return success/failure
      */
-    bool sendFrame(const void *data, size_t length, bool downlink = false);
+    bool sendFrame(const void *data, size_t length, char *downlink = nullptr);
 
     /**
      * @brief Get a temperature (result in 1/10th °C)
@@ -144,6 +144,7 @@ class Wisol {
 
     // this will force parser to be in RAM instead of HEAP
     uint32_t parser_buffer[sizeof(ATCmdParser) / sizeof(uint32_t)];
+    const char hex_chars[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 };
 
 #endif  // WISOL_H
