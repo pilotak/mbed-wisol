@@ -1,5 +1,5 @@
 {
-  "name": "Wisol",
+  "name": "wisol",
   "config": {
     "timeout": {
       "help": "Timeout for AT commands (ms)",
