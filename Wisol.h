@@ -38,7 +38,7 @@ SOFTWARE.
 class Wisol {
   public:
     Wisol(PinName tx, PinName rx);
-    ~Wisol(void);
+    ~Wisol();
 
     typedef enum {
         Reset = 0,
@@ -107,7 +107,7 @@ class Wisol {
      *
      * @param data pointer to a data buffer
      * @param length length of data
-     * @param downlink point to downlink response should you need
+     * @param downlink pointer to a downlink data buffer, should you need
      * @return success/failure
      */
     bool sendFrame(const void *data, size_t length, char *downlink = nullptr);
